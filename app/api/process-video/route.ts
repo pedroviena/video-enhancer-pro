@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+// Ensure this route runs on the Node.js runtime (required for native binaries like ffmpeg)
+export const runtime = "nodejs"
 import { writeFile, mkdir } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
@@ -73,7 +75,15 @@ export async function POST(request: NextRequest) {
 }
 
 async function processVideo(jobId: string, inputPath: string, settings: any) {
-  const ffmpeg = require("fluent-ffmpeg")
+  // Dynamically import to avoid bundling on client and to access installer path at runtime
+  const ffmpegModule: any = await import("fluent-ffmpeg")
+  const ffmpeg = ffmpegModule.default ?? ffmpegModule
+
+  // Point fluent-ffmpeg to the installed ffmpeg binary (works on Netlify linux environment)
+  const ffmpegInstaller: any = await import("@ffmpeg-installer/ffmpeg")
+  if (ffmpegInstaller?.path) {
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+  }
   const outputPath = path.join(process.cwd(), "public", "output", `${jobId}_output.mp4`)
 
   return new Promise((resolve, reject) => {
